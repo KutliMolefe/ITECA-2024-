@@ -1,0 +1,633 @@
+<?php
+   session_start();
+include 'config.php'; 
+
+
+if (!isset($_SESSION['usr_id'])) {
+    header("Location: Login.php");
+    exit();
+} 
+
+$usersQuery = "SELECT id, name, email, contact, city, address FROM users";
+$usersResult = mysqli_query($con, $usersQuery);
+  
+$ordersQuery = "SELECT * FROM orders";
+$ordersResult = mysqli_query($con, $ordersQuery);
+    
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_product'])) {
+        $productName = $_POST['product_name'];
+       
+        $productPrice = $_POST['product_price'];
+        $productSize = $_POST['product_size'];
+        $productImage = $_FILES['product_image'];
+
+        $imageData = file_get_contents($productImage['tmp_name']);
+    $imageData = mysqli_real_escape_string($con, $imageData);
+
+
+        
+        $query = "INSERT INTO items (name,  price, size, image) VALUES ('$productName',  '$productPrice', '$productSize', '$imageData')";
+        if (mysqli_query($con, $query)) {
+            echo "Product added successfully!";
+        } else {
+            echo "Error: " . $query . "<br>" . mysqli_error($con);
+        }
+    }
+
+  
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_product'])) {
+        $productId = $_POST['product_id'];
+
+    
+        $query = "DELETE FROM items WHERE id = $productId";
+        if (mysqli_query($con, $query)) {
+            echo "Product deleted successfully!";
+        } else {
+            echo "Error: " . $query . "<br>" . mysqli_error($con);
+        }
+    }
+	
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_product'])) {
+    $productId = $_POST['product_id'];
+    $productName = $_POST['product_name'];
+    $productPrice = $_POST['product_price'];
+    $productSize = $_POST['product_size'];
+    $productImage = $_FILES['product_image'];
+
+    if ($productImage['size'] > 0) {
+        
+        $imageData = file_get_contents($productImage['tmp_name']);
+        $imageData = mysqli_real_escape_string($con, $imageData);
+        $query = "UPDATE items SET name='$productName', price='$productPrice', size='$productSize', image='$imageData' WHERE id=$productId";
+    } else {
+        
+        $query = "UPDATE items SET name='$productName', price='$productPrice', size='$productSize' WHERE id=$productId";
+    }
+
+    if (mysqli_query($con, $query)) {
+        echo "Product updated successfully!";
+    } else {
+        echo "Error: " . $query . "<br>" . mysqli_error($con);
+    }
+}
+    ?>
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="styles.css">
+	<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <title>Admin Panel</title>
+</head>
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Poppins', sans-serif;
+}
+body {
+    min-height: 100vh;
+}
+a {
+    text-decoration: none;
+}
+li {
+    list-style: none;
+}
+h1,
+h2 {
+    color: #444;
+}
+h3 {
+    color: #999;
+}
+.btn {
+    background: #f05462;
+    color: white;
+    padding: 5px 10px;
+    text-align: center;
+}
+.btn:hover {
+    color: #f05462;
+    background: white;
+    padding: 3px 8px;
+    border: 2px solid #f05462;
+}
+.title {
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    padding: 15px 10px;
+    border-bottom: 2px solid #999;
+}
+table {
+    padding: 10px;
+}
+th,
+td {
+    text-align: left;
+    padding: 8px;
+}
+.side-menu {
+    position: fixed;
+    background: #f05462;
+    width: 20vw;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+.side-menu .brand-name {
+    height: 10vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.side-menu li {
+    font-size: 24px;
+    padding: 10px 40px;
+    color: white;
+    display: flex;
+    align-items: center;
+}
+.side-menu li:hover {
+    background: white;
+    color: #f05462;
+}
+.container {
+    position: absolute;
+    right: 0;
+    width: 80vw;
+    height: 100vh;
+    background: #f1f1f1;
+}
+.container .header {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 80vw;
+    height: 10vh;
+    background: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
+    z-index: 1;
+}
+.container .header .nav {
+    width: 90%;
+    display: flex;
+    align-items: center;
+}
+.container .header .nav .search {
+    flex: 3;
+    display: flex;
+    justify-content: center;
+}
+.container .header .nav .search input[type=text] {
+    border: none;
+    background: #f1f1f1;
+    padding: 10px;
+    width: 50%;
+}
+.container .header .nav .search button {
+    width: 40px;
+    height: 40px;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.container .header .nav .search button img {
+    width: 30px;
+    height: 30px;
+}
+.container .header .nav .user {
+    flex: 1;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.container .header .nav .user img {
+    width: 40px;
+    height: 40px;
+}
+.container .header .nav .user .img-case {
+    position: relative;
+    width: 50px;
+    height: 50px;
+}
+.container .header .nav .user .img-case img {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+.container .content {
+    position: relative;
+    margin-top: 10vh;
+    min-height: 90vh;
+    background: #f1f1f1;
+}
+.container .content .cards {
+    padding: 20px 15px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+}
+.container .content .cards .card {
+    width: 250px;
+    height: 150px;
+    background: white;
+    margin: 20px 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
+}
+.container .content .content-2 {
+    min-height: 60vh;
+    display: flex;
+    justify-content: space-around;
+    align-items: flex-start;
+    flex-wrap: wrap;
+}
+.container .content .content-2 .recent-payments {
+    min-height: 50vh;
+    flex: 5;
+    background: white;
+    margin: 0 25px 25px 25px;
+    box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
+    display: flex;
+    flex-direction: column;
+}
+.container .content .content-2 .new-students {
+    flex: 2;
+    background: white;
+    min-height: 50vh;
+    margin: 0 25px;
+    box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
+    display: flex;
+    flex-direction: column;
+}
+.container .content .content-2 .new-students table td:nth-child(1) img {
+    height: 40px;
+    width: 40px;
+}
+@media screen and (max-width: 1050px) {
+    .side-menu li {
+        font-size: 18px;
+    }
+}
+@media screen and (max-width: 940px) {
+    .side-menu li span {
+        display: none;
+    }
+    .side-menu {
+        align-items: center;
+    }
+    .side-menu li img {
+        width: 40px;
+        height: 40px;
+    }
+    .side-menu li:hover {
+        background: #f05462;
+        padding: 8px 38px;
+        border: 2px solid white;
+    }
+}
+@media screen and (max-width:536px) {
+    .brand-name h1 {
+        font-size: 16px;
+    }
+    .container .content .cards {
+        justify-content: center;
+    }
+    .side-menu li img {
+        width: 30px;
+        height: 30px;
+    }
+    .container .content .content-2 .recent-payments table th:nth-child(2),
+    .container .content .content-2 .recent-payments table td:nth-child(2) {
+        display: none;
+    }
+}
+.card {
+    margin-bottom: 20px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.card-title {
+    font-size: 18px;
+    margin-bottom: 10px;
+}
+
+.canvas-container {
+    width: 100%;
+}
+</style>
+<body>
+    <div class="side-menu">
+        <div class="brand-name">
+            <h1>OnBrand</h1>
+        </div>
+         <ul>
+      <li class="active" data-target="content-1"><img  alt="">&nbsp; <span>Dashboard</span> </li>
+      <li data-target="content-2"><img  alt="">&nbsp;<span>Users</span> </li>
+      <li data-target="content-3"><img  alt="">&nbsp;<span>Items</span> </li>
+      <li data-target="content-4"><img  alt="">&nbsp;<span>Orders</span> </li>
+      
+    </ul>
+    </div>
+    <div class="container">
+        <div class="header">
+            <div class="nav">
+                <div class="search">
+                    <input type="text" placeholder="Search..">
+                    <button type="submit"><img src="search.jpg" alt=""></button>
+                </div>
+                <div class="user">
+                    <a href="#" class="btn">Add New</a>
+                   
+                    <div class="img-case">
+                        
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="content">
+      <div id="content-1" class="content-section">
+        <p>This is the Dashboard Content</p>
+		<div class="row">
+                    <div class="col-md-4">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">Total Orders</h5>
+                                <canvas id="ordersChart" width="70" height="30"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">Total Users</h5>
+                                <canvas id="usersChart" width="70" height="30"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">Total Items</h5>
+                                <canvas id="itemsChart" width="70" height="30"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+      
+      <div id="content-2" class="content-section" style="display: none;">
+        <p>This is the Users Content</p>
+		<h2>User Management</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>User ID</th>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Contact</th>
+                            <th>City</th>
+                            <th>Address</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php
+                        if (mysqli_num_rows($usersResult) > 0) {
+                            while ($user = mysqli_fetch_assoc($usersResult)) {
+                                echo "<tr>";
+                                echo "<td>{$user['id']}</td>";
+                                echo "<td>{$user['name']}</td>";
+                                echo "<td>{$user['email']}</td>";
+                                echo "<td>{$user['contact']}</td>";
+                                echo "<td>{$user['city']}</td>";
+                                echo "<td>{$user['address']}</td>";
+                                echo "</tr>";
+                            }
+                        } else {
+                            echo "<tr><td colspan='6'>No users found.</td></tr>";
+                        }
+                        ?>
+                    </tbody>
+                </table>
+      </div>
+      <div id="content-3" class="content-section" style="display: none;">
+        <p>This is the items Content</p>
+		   <h2>Manage Items</h2>
+               
+                <form action="" method="POST" enctype="multipart/form-data">
+                    <input type="hidden" name="add_product" value="1">
+                    <label for="productName">Product Name:</label>
+                    <input type="text" id="productName" name="product_name" required>
+                    <label for="productPrice">Product Price:</label>
+                    <input type="number" id="productPrice" name="product_price" step="0.01" required>
+                    <label for="productSize">Product Size:</label>
+                    <input type="text" id="productSize" name="product_size" required>
+                    <button type="submit">Add Product</button>
+					<input type="file" id="productImage" name="product_image" required>
+    <button type="submit">Add Product</button>
+                </form>
+				
+
+               
+                <h3>Existing Products</h3>
+                <ul id="productList">
+                    <?php
+                   
+                    $query = "SELECT * FROM items";
+                    $result = mysqli_query($con, $query);
+                    while ($row = mysqli_fetch_assoc($result)) {
+						$imageData = base64_encode($row['image']);
+        $imageSrc = "data:image/jpeg;base64,{$imageData}";
+                        echo "<li>";
+                        echo "<p>{$row['name']} - {$row['price']} - {$row['size']}</p>";
+						echo "<img src='{$imageSrc}' alt='{$row['name']}' style='width:100px;height:auto;'>";
+                        echo "<form action='' method='POST' style='display:inline;'>";
+                        echo "<input type='hidden' name='delete_product' value='1'>";
+                        echo "<input type='hidden' name='product_id' value='{$row['id']}'>";
+                        echo "<button type='submit'>Delete</button>";
+                        echo "</form>";
+						 echo "<button onclick=\"editProduct('{$row['id']}', '{$row['name']}', '{$row['price']}', '{$row['size']}')\">Edit</button>";
+                        echo "</li>";
+                    }
+                    ?>
+                </ul>
+				
+<form id="editForm" action="" method="POST" enctype="multipart/form-data" style="display: none;">
+    <input type="hidden" name="edit_product" value="1">
+    <input type="hidden" id="editProductId" name="product_id">
+    <label for="editProductName">Product Name:</label>
+    <input type="text" id="editProductName" name="product_name" required>
+    <label for="editProductPrice">Product Price:</label>
+    <input type="number" id="editProductPrice" name="product_price" step="0.01" required>
+    <label for="editProductSize">Product Size:</label>
+    <input type="text" id="editProductSize" name="product_size" required>
+    <label for="editProductImage">Product Image:</label>
+    <input type="file" id="editProductImage" name="product_image">
+    <button type="submit">Update Product</button>
+</form>
+
+      </div>
+	  
+            <div id="content-4" class="content-section" style="display: none;">
+                <h2>Order History</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Order ID</th>
+                            <th>User ID</th>
+                            <th>Address</th>
+                            <th>Contact Number</th>
+                            <th>City</th>
+                            <th>Order Time</th>
+							 <th>Logo</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php
+                        if (mysqli_num_rows($ordersResult) > 0) {
+                            while ($order = mysqli_fetch_assoc($ordersResult)) {
+                                echo "<tr>";
+                                echo "<td>{$order['order_id']}</td>";
+                                echo "<td>{$order['user_id']}</td>";
+                                echo "<td>{$order['address']}</td>";
+                                echo "<td>{$order['contact_number']}</td>";
+                                echo "<td>{$order['city']}</td>";
+                                echo "<td>{$order['order_time']}</td>";
+								  echo "<td>{$order['logo']}</td>";
+                                echo "</tr>";
+                            }
+                        } else {
+                            echo "<tr><td colspan='6'>No orders found.</td></tr>";
+                        }
+                        ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+      
+   
+      
+
+            
+        
+	<script>
+	const menuItems = document.querySelectorAll('.side-menu li');
+const contentSections = document.querySelectorAll('.content-section');
+
+menuItems.forEach(item => {
+  item.addEventListener('click', () => {
+   
+    menuItems.forEach(i => i.classList.remove('active'));
+    item.classList.add('active');
+
+   
+    const targetId = item.dataset.target;
+    const targetSection = document.getElementById(targetId);
+
+   
+    contentSections.forEach(section => section.style.display = 'none');
+    targetSection.style.display = 'block';
+  });
+});
+
+function editProduct(id, name, price, size) {
+    document.getElementById('editForm').style.display = 'block';
+    document.getElementById('editProductId').value = id;
+    document.getElementById('editProductName').value = name;
+    document.getElementById('editProductPrice').value = price;
+    document.getElementById('editProductSize').value = size;
+}
+
+const ordersData = {
+            labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+            datasets: [{
+                label: 'Total Orders',
+                data: [12, 19, 3, 5, 2, 3],
+                backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                borderColor: 'rgba(255, 99, 132, 1)',
+                borderWidth: 1
+            }]
+        };
+
+        const usersData = {
+            labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+            datasets: [{
+                label: 'Total Users',
+                data: [8, 12, 10, 15, 7, 9],
+                backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                borderColor: 'rgba(54, 162, 235, 1)',
+                borderWidth: 1
+            }]
+        };
+
+        const itemsData = {
+            labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+            datasets: [{
+                label: 'Total Items',
+                data: [20, 15, 25, 18, 22, 19],
+                backgroundColor: 'rgba(255, 206, 86, 0.2)',
+                borderColor: 'rgba(255, 206, 86, 1)',
+                borderWidth: 1
+            }]
+        };
+
+
+        const ordersCtx = document.getElementById('ordersChart').getContext('2d');
+        const ordersChart = new Chart(ordersCtx, {
+            type: 'bar',
+            data: ordersData,
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+
+        const usersCtx = document.getElementById('usersChart').getContext('2d');
+        const usersChart = new Chart(usersCtx, {
+            type: 'bar',
+            data: usersData,
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+
+        const itemsCtx = document.getElementById('itemsChart').getContext('2d');
+        const itemsChart = new Chart(itemsCtx, {
+            type: 'bar',
+            data: itemsData,
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    
+</script>
+	
+</body>
+
+</html>
